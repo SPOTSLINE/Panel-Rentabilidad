@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<script src="/Paneldepaneles/candado.js" data-panel="rentabilidad"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rentabilidad · Margen por artículo · Spotsline</title>
+<script>try{var t=localStorage.getItem('portal_tema');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+/* Mismos colores que la portada (estilo Producción), claro y oscuro */
+:root{
+  --bg:#EFEFEC;--panel:#FFFFFF;--panel2:#F4F4F1;--ink:#141414;--muted:#5F5F5A;--faint:#8A8A84;--line:#CFCFC8;--line2:#E3E3DE;
+  --lamp:#F5C400;--lampbg:#FFF4BF;--lampink:#3D3100;--ok:#2B7555;--okbg:#DCEEE5;--mid:#9A5B00;--midbg:#FBE9CF;--bad:#B8412A;--badbg:#F6DFD8;
+  --bar:#C98500;--s1:#C98500;--s2:#D55181;--s3:#3987E5;--hover:rgba(0,0,0,.04);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F0F0F;--panel:#1A1A1A;--panel2:#222222;--ink:#EDEDE8;--muted:#A3A39B;--faint:#77776F;--line:#3A3A36;--line2:#2A2A27;
+  --lamp:#FFD21F;--lampbg:#3A3000;--lampink:#FFE27A;--ok:#5DBB8E;--okbg:#17332A;--mid:#F0A34A;--midbg:#36240C;--bad:#E3775F;--badbg:#3C211B;
+  --bar:#FFD21F;--hover:rgba(255,255,255,.04);color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0F0F0F;--panel:#1A1A1A;--panel2:#222222;--ink:#EDEDE8;--muted:#A3A39B;--faint:#77776F;--line:#3A3A36;--line2:#2A2A27;
+  --lamp:#FFD21F;--lampbg:#3A3000;--lampink:#FFE27A;--ok:#5DBB8E;--okbg:#17332A;--mid:#F0A34A;--midbg:#36240C;--bad:#E3775F;--badbg:#3C211B;
+  --bar:#FFD21F;--hover:rgba(255,255,255,.04);color-scheme:dark;}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.header{background:var(--panel);border-bottom:2px solid var(--lamp);padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;min-height:58px}
+.logo{display:flex;align-items:center;gap:12px;padding:10px 0;min-width:0}
+.logo-icon{width:34px;height:34px;background:var(--lamp);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#141414;font-size:19px;flex-shrink:0}
+.logo h1{font-size:17px;font-weight:700;font-stretch:112%}
+.logo small{display:block;font-size:12px;color:var(--faint);font-weight:400;margin-top:1px}
+.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer;font-size:13px;white-space:nowrap}
+.btn:hover{color:var(--ink)}
+.btn-prim{background:var(--lamp);color:#141414;border-color:var(--lamp);font-weight:700}
+.btn-prim:hover{color:#141414;filter:brightness(1.05)}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,.seg button:focus-visible,th button:focus-visible,.inp:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.main{padding:18px 24px 90px;max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{background:none;border:0;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--lamp);color:#141414;font-weight:700}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;color:var(--muted);font-size:14px;font-weight:600;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--lamp)}
+.inp{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:13px 15px;min-width:0}
+.kpi .l{font-size:12px;color:var(--faint);margin-bottom:4px}
+.kpi .v{font-family:var(--mono);font-size:22px;font-weight:600}
+.kpi .v small{font-family:var(--sans);font-size:12.5px;color:var(--muted);font-weight:400}
+.aviso{background:var(--lampbg);border-left:4px solid var(--lamp);color:var(--ink);padding:11px 14px;border-radius:8px;font-size:13px}
+.aviso b{font-weight:700}
+.aviso.err{background:var(--badbg);border-left-color:var(--bad)}
+.ctl{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px 16px}
+.ctl .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ctl .k{font-weight:700;font-size:13.5px}
+.ctl .help{font-size:12.5px;color:var(--muted)}
+.ctl .der{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.num-in{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono)}
+.num-in input{width:90px;font-size:15px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);text-align:right;font-family:var(--mono)}
+.ro{font-family:var(--mono);font-size:16px;font-weight:600}
+.charts{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:14px 16px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.wide{grid-column:1/-1}
+.card-h h2{font-size:15px;font-weight:700;font-stretch:108%}
+.card-h p{margin-top:2px;font-size:12.5px;color:var(--muted)}
+.card-h.row{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:flex-start}
+.card-kpi{font-size:13px}
+.card-kpi b{font-family:var(--mono);font-size:15px;color:var(--bad)}
+.inl input{width:54px;font-family:var(--mono);padding:2px 6px;border:1px solid var(--line);border-radius:4px;background:var(--panel2);text-align:right}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
+.sw.s1{background:var(--s1)}.sw.s2{background:var(--s2)}.sw.s3{background:var(--s3)}
+.chart{min-width:0;overflow:hidden}
+.chart svg{display:block}
+.chart .grid{stroke:var(--line2);stroke-width:1}
+.chart .ax{fill:var(--faint);font-size:11px;font-family:var(--mono)}
+.chart .lbl{fill:var(--ink);font-size:11.5px;font-family:var(--mono);paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.chart .lbl-m{fill:var(--muted)}
+.chart .lbl-ok{fill:var(--ok)}
+.chart .lbl-bad{fill:var(--bad)}
+.chart .cd{fill:var(--ink);font-size:11.5px;font-family:var(--mono)}
+.chart .bar{fill:var(--bar)}
+.chart .bar.bad{fill:var(--bad)}
+.chart .s1{fill:var(--s1)}.chart .s2{fill:var(--s2)}.chart .s3{fill:var(--s3)}
+.chart .ref{stroke:var(--ink);stroke-width:1.5;stroke-opacity:.7}
+.chart .hit{fill:transparent}
+.chart .hit:hover{fill:var(--ink);fill-opacity:.05}
+.chart .click{cursor:pointer}
+.chart .selbox{fill:none;stroke:var(--lamp);stroke-width:2}
+.tip{position:absolute;z-index:5;pointer-events:none;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12.5px;line-height:1.45;max-width:290px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.kk{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.kk.s1{background:var(--s1)}.kk.s2{background:var(--s2)}.kk.s3{background:var(--s3)}
+.vacio{padding:28px;text-align:center;color:var(--faint)}
+.foot-note{font-size:12px;color:var(--muted)}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tools input[type=search]{flex:1 1 260px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+.chk input{accent-color:var(--lamp);width:15px;height:15px}
+.count{font-size:13px;color:var(--faint)}
+.tbl{overflow-x:auto;border:1px solid var(--line2);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:1180px;font-size:13px}
+th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line2);white-space:nowrap}
+th:nth-child(-n+2),td:nth-child(-n+2){text-align:left}
+td:nth-child(2){white-space:normal;min-width:190px;max-width:260px;font-size:12.5px}
+thead th{position:sticky;top:0;background:var(--panel2);z-index:1;font-size:11.5px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.3px}
+th button{background:none;border:0;padding:0;cursor:pointer;display:inline-flex;gap:4px;align-items:center;text-transform:inherit;letter-spacing:inherit;font-weight:inherit;color:inherit}
+th button[data-dir]{color:var(--ink)}
+th button[data-dir=asc]::after{content:"▲";font-size:9px}
+th button[data-dir=desc]::after{content:"▼";font-size:9px}
+tbody tr:hover{background:var(--hover)}
+tbody tr:last-child td{border-bottom:0}
+.n{font-family:var(--mono);font-size:12.5px}
+.cod{font-family:var(--mono);font-size:12.5px;font-weight:600}
+.fam{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+.pend{color:var(--faint);font-style:italic;font-size:12px}
+.old{color:var(--mid);font-size:9px;margin-left:4px;vertical-align:2px}
+.parc{color:var(--mid);margin-left:2px}
+.motot{font-weight:700}
+.netd{color:var(--mid);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.pbar{width:36px;height:6px;border-radius:3px;background:var(--line2);overflow:hidden}
+.pbar i{display:block;height:100%}
+.tag{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:2px 7px;border-radius:4px;min-width:60px;text-align:right}
+.alto .tag{background:var(--okbg);color:var(--ok)} .alto .pbar i{background:var(--ok)}
+.medio .tag{background:var(--midbg);color:var(--mid)} .medio .pbar i{background:var(--mid)}
+.bajo .tag{background:var(--badbg);color:var(--bad)} .bajo .pbar i{background:var(--bad)}
+.per{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+footer{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--line);padding-top:14px}
+.cargando{padding:60px;text-align:center;color:var(--faint)}
+@media(max-width:760px){.charts{grid-template-columns:minmax(0,1fr)}.header{padding:0 14px}.main{padding:14px 12px 90px}.kpi .v{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><div class="logo-icon"><i class="ti ti-percentage"></i></div>
+    <div><h1>Rentabilidad · Margen por artículo</h1><small id="sub">Cargando…</small></div></div>
+  <div class="header-actions">
+    <button class="btn" id="btn-excel" disabled><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="avisos"></div>
+  <div class="cargando" id="cargando">Cargando datos…</div>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist" aria-label="Vistas">
+      <button role="tab" id="tab-margen" aria-selected="true" data-v="margen">Margen por artículo</button>
+      <button role="tab" id="tab-mo" aria-selected="false" data-v="mo">Mano de obra de lo vendido</button>
+    </div>
+
+    <!-- ═════════════ VISTA MARGEN ═════════════ -->
+    <section id="v-margen" style="display:flex;flex-direction:column;gap:16px;margin-top:16px">
+      <div class="kpis">
+        <div class="kpi"><div class="l">Artículos</div><div class="v" id="s-n">–</div></div>
+        <div class="kpi"><div class="l">Margen promedio</div><div class="v" id="s-avg">–</div></div>
+        <div class="kpi"><div class="l">Margen mediano</div><div class="v" id="s-med">–</div></div>
+        <div class="kpi"><div class="l">Menor margen</div><div class="v" id="s-min">–</div></div>
+      </div>
+
+      <div class="aviso"><b>Cómo leer el costo.</b> Costo total = materia prima + mano de obra de taller, pintura y armado, a <span id="ps-note">–</span>. Los tiempos salen de los estándares del panel de producción. Donde dice "sin dato", esa mano de obra no está cargada y el margen de ese artículo queda más alto de lo real. <span id="pend-n"></span></div>
+
+      <div class="ctl">
+        <div class="txt"><span class="k">Precio del segundo de mano de obra</span><span class="help" id="ps-h">–</span></div>
+        <div class="der" id="ps-ctl"></div>
+      </div>
+      <div class="ctl">
+        <div class="txt"><span class="k">Descuento promedio sobre precio de lista</span><span class="help" id="disc-help">–</span></div>
+        <div class="der">
+          <div class="num-in"><input type="text" id="disc" inputmode="decimal" aria-label="Descuento en porcentaje" style="width:70px"><span>%</span></div>
+          <div class="seg" id="disc-seg" role="group" aria-label="Descuentos rápidos">
+            <button type="button" data-d="0" aria-pressed="true">Sin descuento</button>
+            <button type="button" data-d="32" aria-pressed="false">32%</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts">
+        <article class="card">
+          <header class="card-h"><h2>Distribución de márgenes</h2><p>Cantidad de artículos por rango de margen, con el descuento aplicado.</p></header>
+          <div class="chart" id="ch-dist"></div>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Hasta qué descuento aguanta</h2>
+            <p>Descuento máximo de cada artículo para no bajar de un margen de <label class="inl"><input type="text" inputmode="decimal" id="minm" aria-label="Margen mínimo en porcentaje">%</label>. Los 12 más justos.</p></header>
+          <p class="card-kpi" id="md-sum"></p>
+          <div class="chart" id="ch-maxd"></div>
+        </article>
+        <article class="card wide">
+          <header class="card-h row"><div><h2>Margen promedio por familia</h2><p>Con el descuento aplicado. Tocá una barra para ver sus artículos en la tabla.</p></div>
+            <div class="seg" id="famseg" role="group" aria-label="Familias a mostrar"><button type="button" data-f="worst" aria-pressed="true">Las 15 peores</button><button type="button" data-f="best" aria-pressed="false">Las 15 mejores</button></div></header>
+          <div class="chart" id="ch-fam"></div>
+        </article>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+
+      <div class="tools" id="tools">
+        <input type="search" id="q" placeholder="Buscar por código, nombre o familia…" aria-label="Buscar artículo">
+        <div class="seg" id="bands" role="group" aria-label="Filtrar por margen">
+          <button type="button" data-band="all" aria-pressed="true">Todos</button>
+          <button type="button" data-band="bajo" aria-pressed="false">Bajo &lt;70%</button>
+          <button type="button" data-band="medio" aria-pressed="false">Medio 70–80%</button>
+          <button type="button" data-band="alto" aria-pressed="false">Alto ≥80%</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="onlyFull"> Solo costo completo</label>
+        <label class="chk"><input type="checkbox" id="onlyPend"> Solo con valores pendientes <span class="old">●</span></label>
+        <span class="count" id="count"></span>
+      </div>
+
+      <div class="tbl">
+        <table>
+          <thead><tr>
+            <th><button type="button" data-k="code">Código</button></th>
+            <th><button type="button" data-k="name">Artículo</button></th>
+            <th><button type="button" data-k="price">Precio lista</button></th>
+            <th><button type="button" data-k="net">Precio c/ desc.</button></th>
+            <th><button type="button" data-k="mp">Materia prima</button></th>
+            <th><button type="button" data-k="mo">MO taller</button></th>
+            <th><button type="button" data-k="pin">MO pintura</button></th>
+            <th><button type="button" data-k="arm">MO armado</button></th>
+            <th><button type="button" data-k="motot">MO total</button></th>
+            <th><button type="button" data-k="cost">Costo total</button></th>
+            <th><button type="button" data-k="mg">Margen $</button></th>
+            <th><button type="button" data-k="pct" data-dir="asc">Margen %</button></th>
+          </tr></thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═════════════ VISTA MANO DE OBRA ═════════════ -->
+    <section id="v-mo" hidden style="flex-direction:column;gap:16px;margin-top:16px">
+      <div class="ctl">
+        <div class="txt"><span class="k">Dónde se va la mano de obra</span>
+          <span class="help">Unidades entregadas en las órdenes de cada mes × mano de obra por unidad de cada artículo. Muestra qué productos y qué procesos consumen más horas.</span></div>
+        <div class="der"><label class="per">Período <select class="inp" id="moper" aria-label="Período"></select></label></div>
+      </div>
+      <div class="kpis" id="mo-kpi"></div>
+      <div class="charts" id="mo-charts">
+        <article class="card wide">
+          <header class="card-h"><h2>Evolución mensual</h2><p>Horas-hombre de lo entregado cada mes, por sector. Tocá un mes para verlo en detalle.</p></header>
+          <div class="legend"><span><i class="sw s1"></i>Taller</span><span><i class="sw s2"></i>Pintura</span><span><i class="sw s3"></i>Armado</span></div>
+          <div class="chart" id="ch-evo"></div>
+        </article>
+        <article class="card wide">
+          <header class="card-h row"><div><h2 id="mo-title">Lo que más mano de obra consumió</h2><p>Barras: MO en pesos de lo entregado en el período, por sector. A la derecha: MO, lo facturado, qué % se fue en MO y la rentabilidad (facturado − materia prima − MO, sobre lo facturado).</p></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <div class="seg" id="mosort" role="group" aria-label="Ordenar por"><button type="button" data-s="mo" aria-pressed="true">Más MO</button><button type="button" data-s="venta" aria-pressed="false">Más facturado</button></div>
+              <div class="seg" id="moseg" role="group" aria-label="Agrupar por"><button type="button" data-g="art" aria-pressed="true">Artículos</button><button type="button" data-g="fam" aria-pressed="false">Familias</button></div>
+            </div></header>
+          <div class="legend"><span><i class="sw s1"></i>Taller</span><span><i class="sw s2"></i>Pintura</span><span><i class="sw s3"></i>Armado</span></div>
+          <div class="chart" id="ch-mo"></div>
+          <p class="foot-note" id="mo-inc" hidden></p>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Horas por sector</h2><p>Horas-hombre que llevó lo entregado en el período.</p></header>
+          <div class="chart" id="ch-sec"></div>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Horas de taller por máquina</h2><p>Segundos estándar de cada operación, para lo entregado en el período.</p></header>
+          <div class="chart" id="ch-mach"></div>
+        </article>
+        <div class="tip" id="tip2" hidden></div>
+      </div>
+    </section>
+
+    <footer style="margin-top:18px">
+      <span>MO total = MO taller + MO pintura + MO armado (con * cuando falta alguna). Costo total = materia prima + MO total. Precio c/ desc. = precio de lista × (1 − descuento). Margen % = (precio c/ desc. − costo total) ÷ precio c/ desc. Cada MO en pesos = segundos × precio del segundo; pasá el mouse sobre un valor para ver sus segundos.</span>
+      <span>MO taller: suma de los segundos de las operaciones de la familia en el panel de producción, sin BACM/BAQM ni pasos combinados (SO1Y2, PL1Y2, GU2Y3). Familias combinadas: L111/N y L109/N = cabezal × N + BASE CABEZAL NL; L109/NP = L109 × N + BASE PLANA NL; CUBO04/N = CUBO04 × N + BASE COLGANTE NL. Sin taller: 1008, 1010 a 1013, E112, E20, E24, E31, maderas y protectores jaula.</span>
+      <span>MO pintura: 3.600 ÷ piezas por hora de la línea × 6 personas, sumando las piezas pintadas de la familia. Sin pintura: terminaciones acero y oro, 1010 a 1013, maderas y bases crudas. MO armado: 3.600 ÷ piezas por hora por persona, por código (+LEDC/+LEDF toman su versión sin lámpara; AXIS/4 AR111 el CABL111/4; BLOK 4L = BLOK 2L × 2). Bases cabezal/colgante, listones y ACC PLAFON no llevan armado.</span>
+      <span>● = producción todavía no tiene ese estándar y se usa el valor del archivo anterior. Los BLOK DICRO tienen costo $0 en Odoo y usan el de su variante -CEN. No incluye: artículos sin referencia interna, costo $0, precio $0 o $1, CAJ006, ZOC001/009/012/013, fuera de lista, MEGA 2x18 y 4x9.</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   RENTABILIDAD · Margen por artículo (basado en el panel de margen armado en claude.ai)
+   Datos: Supabase del portal, tablas rent_articulos, rent_taller_ops, rent_ventas_mes y rent_parametros.
+   Solo lo ven quienes tienen el panel "rentabilidad" (los administradores siempre).
+   El precio del segundo lo cambia solo un administrador; el descuento y el margen mínimo
+   son de cada navegador (para simular), no se guardan en la base.
+   ════════════════════════════════════════════════════════════════ */
+const SB_URL = 'https://fzylibnqqjznaddgpsjt.supabase.co';
+const SB_KEY = 'sb_publishable_zHONcBODl6nbPiLS3TSrZw_D8MVJqeE';
+const DEMO = window.RENT_DEMO || null;          // prueba local: datos en memoria
+const sb = DEMO ? null : window.supabase.createClient(SB_URL, SB_KEY);
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sinAc = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const fm = new Intl.NumberFormat('es-AR', {style:'currency', currency:'ARS', maximumFractionDigits:0});
+const fp = v => (v*100).toLocaleString('es-AR', {minimumFractionDigits:1, maximumFractionDigits:1}) + '%';
+const fn = v => Math.round(v).toLocaleString('es-AR');
+const fs = v => v.toLocaleString('es-AR', {maximumFractionDigits:1}) + ' s';
+const fmM = v => Math.abs(v) >= 1e6 ? '$ ' + (v/1e6).toLocaleString('es-AR', {maximumFractionDigits:2}) + ' M' : fm.format(v);
+const fps = v => '$ ' + v.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:4});
+const leerNum = s => { s = String(s ?? '').trim(); if (/,/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); return parseFloat(s); };
+const guardarLocal = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) {} };
+const leerLocal = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const OLDTXT = 'Valor del archivo anterior: este estándar todavía no está en el panel de producción';
+
+/* ───────── estado ───────── */
+const D = { arts:[], ops:{}, ventas:[], par:{} };      // lo que viene de la base
+let PS = null, ES_ADMIN = false, rows = [];
+let disc = 0, minM = 40, sortK = 'pct', sortDir = 'asc', band = 'all', q = '', onlyFull = false, onlyPend = false, famMode = 'worst';
+{ const v = parseFloat(leerLocal('rent_desc')); if (v >= 0 && v <= 90) disc = v;
+  const m = parseFloat(leerLocal('rent_minm')); if (m >= 0 && m <= 90) minM = m; }
+
+/* ───────── datos ───────── */
+async function todos(tabla, cols, orden){
+  if (DEMO) return DEMO[tabla] || [];
+  const out = [], paso = 1000;
+  for (let desde = 0; ; desde += paso){
+    const {data, error} = await sb.from(tabla).select(cols).order(orden).range(desde, desde + paso - 1);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < paso) return out;
+  }
+}
+async function cargar(){
+  const [arts, ops, ven, par] = await Promise.all([
+    todos('rent_articulos', 'codigo,nombre,familia,familia_prod,precio_lista,materia_prima,seg_taller,seg_pintura,seg_armado,origen_taller,origen_pintura,origen_armado,nota', 'codigo'),
+    todos('rent_taller_ops', 'codigo,operacion,segundos', 'codigo'),
+    todos('rent_ventas_mes', 'mes,codigo,unidades,importe', 'mes'),
+    todos('rent_parametros', 'clave,valor,texto,usuario,updated_at', 'clave')
+  ]);
+  D.arts = arts;
+  D.ops = {}; ops.forEach(o => { (D.ops[o.codigo] = D.ops[o.codigo] || {})[o.operacion] = +o.segundos; });
+  const porMes = {}; ven.forEach(v => { (porMes[v.mes] = porMes[v.mes] || []).push([v.codigo, +v.unidades, +v.importe]); });
+  D.ventas = Object.keys(porMes).sort().map(k => ({key:k, label:MESES[+k.slice(5,7)-1] + (k.slice(0,4) !== '2026' ? ' ' + k.slice(0,4) : ''), items:porMes[k]}));
+  D.par = {}; par.forEach(p => D.par[p.clave] = p);
+  PS = D.par.precio_seg && +D.par.precio_seg.valor > 0 ? +D.par.precio_seg.valor : 2.62;
+}
+const num0 = v => v == null ? null : +v;
+function armarFilas(){
+  rows = D.arts.map(a => {
+    const sec = [num0(a.seg_taller), num0(a.seg_pintura), num0(a.seg_armado)];
+    const fl = [a.origen_taller || 'sin', a.origen_pintura || 'sin', a.origen_armado || 'sin'];
+    const pe = v => v == null ? null : v * PS;
+    const mo = pe(sec[0]), pin = pe(sec[1]), arm = pe(sec[2]);
+    const motot = (mo || 0) + (pin || 0) + (arm || 0);
+    const mp = +a.materia_prima;
+    return {code:a.codigo, name:a.nombre, fam:a.familia || '', fp:a.familia_prod || '', nota:a.nota || '', price:+a.precio_lista, mp,
+            sec, fl, mo, pin, arm, motot, full: mo != null && pin != null && arm != null, pend: fl.includes('viejo'), cost: mp + motot};
+  });
+  aplicarDesc();
+}
+function aplicarDesc(){
+  rows.forEach(r => {
+    r.net = r.price * (1 - disc/100);
+    r.mg = r.net - r.cost;
+    r.pct = r.net ? r.mg / r.net : 0;
+    r.band = r.pct < .70 ? 'bajo' : r.pct < .80 ? 'medio' : 'alto';
+  });
+}
+
+/* ───────── vista margen ───────── */
+const coincide = (r, t) => !t || sinAc(r.code).includes(t) || sinAc(r.name).includes(t) || sinAc(r.fam).includes(t);
+function filtradas(conBanda){
+  const t = sinAc(q.trim());
+  return rows.filter(r => (!conBanda || band === 'all' || r.band === band) && (!onlyFull || r.full) && (!onlyPend || r.pend) && coincide(r, t));
+}
+function stats(list){
+  const p = list.map(r => r.pct).sort((a, b) => a - b), n = p.length;
+  $('#s-n').textContent = n.toLocaleString('es-AR');
+  $('#s-avg').textContent = n ? fp(p.reduce((a, b) => a + b, 0)/n) : '–';
+  $('#s-med').textContent = n ? fp(n % 2 ? p[(n-1)/2] : (p[n/2-1] + p[n/2])/2) : '–';
+  const lo = list.reduce((m, r) => !m || r.pct < m.pct ? r : m, null);
+  $('#s-min').innerHTML = lo ? fp(lo.pct) + ' <small>' + esc(lo.code) + '</small>' : '–';
+}
+function moCelda(r, i, v){
+  if (v == null) return '<span class="pend">sin dato</span>';
+  const old = r.fl[i] === 'viejo';
+  return `<span title="${fs(r.sec[i])}${old ? ' · ' + OLDTXT : ''}">${fm.format(v)}</span>${old ? `<span class="old" title="${OLDTXT}">●</span>` : ''}`;
+}
+let ULTIMA = [];
+function render(){
+  let list = filtradas(true);
+  const d = sortDir === 'asc' ? 1 : -1;
+  list.sort((a, b) => { const x = a[sortK], y = b[sortK];
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+    return typeof x === 'string' ? x.localeCompare(y, 'es') * d : (x - y) * d; });
+  ULTIMA = list;
+  stats(list);
+  renderGraficos();
+  $('#count').textContent = list.length + ' de ' + rows.length;
+  const tb = $('#tb');
+  if (!list.length){ tb.innerHTML = '<tr><td colspan="12" class="vacio">No hay artículos que coincidan con la búsqueda.</td></tr>'; return; }
+  tb.innerHTML = list.map(r => `<tr>
+    <td class="cod">${esc(r.code)}</td>
+    <td>${esc(r.name)}${r.fam ? `<span class="fam">Familia ${esc(r.fam)}${r.fp && r.fp !== r.fam ? ' · en producción: ' + esc(r.fp) : ''}</span>` : ''}${r.nota ? `<span class="fam" title="${esc(r.nota)}">ⓘ ${esc(r.nota)}</span>` : ''}</td>
+    <td class="n">${fm.format(r.price)}</td>
+    <td class="n${disc ? ' netd' : ''}">${fm.format(r.net)}</td>
+    <td class="n">${fm.format(r.mp)}</td>
+    <td class="n">${moCelda(r, 0, r.mo)}</td>
+    <td class="n">${moCelda(r, 1, r.pin)}</td>
+    <td class="n">${moCelda(r, 2, r.arm)}</td>
+    <td class="n motot">${fm.format(r.motot)}${r.full ? '' : '<span class="parc" title="Falta alguna mano de obra">*</span>'}</td>
+    <td class="n">${fm.format(r.cost)}</td>
+    <td class="n">${fm.format(r.mg)}</td>
+    <td class="${r.band}"><span class="pill"><span class="pbar"><i style="width:${Math.max(0, Math.min(100, r.pct*100)).toFixed(0)}%"></i></span><span class="tag">${fp(r.pct)}</span></span></td>
+  </tr>`).join('');
+}
+
+/* ───────── gráficos (SVG a mano) ───────── */
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function txt(parent, x, y, s, cls, anchor){ const t = el('text', {x, y, class: cls || 'ax', 'text-anchor': anchor || 'start'}, parent); t.textContent = s; return t; }
+function showTip(ev, html, t){ t.innerHTML = html; t.hidden = false; const r = t.parentElement.getBoundingClientRect(); let x = ev.clientX - r.left + 14; const y = ev.clientY - r.top + 14; if (x + t.offsetWidth > r.width) x = ev.clientX - r.left - t.offsetWidth - 14; t.style.left = Math.max(0, x) + 'px'; t.style.top = y + 'px'; }
+function hideTip(){ $('#tip').hidden = true; $('#tip2').hidden = true; }
+function hover(node, html, t){ node.addEventListener('pointermove', e => showTip(e, html, t || $('#tip'))); node.addEventListener('pointerleave', hideTip); }
+function barPath(x, y, w, h, horiz){   // 4px redondeado en el extremo del dato, recto en la base
+  if (w <= 0 || h <= 0) return '';
+  const r = Math.min(4, horiz ? h/2 : w/2, horiz ? w : h);
+  if (horiz) return `M${x},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h-r}Q${x+w},${y+h} ${x+w-r},${y+h}H${x}Z`;
+  return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`;
+}
+const vacio = (box, t) => { box.innerHTML = `<p class="vacio">${t}</p>`; };
+function renderGraficos(){ const list = filtradas(false); dibDist(list); dibMaxD(list); dibFam(list); }
+
+function dibDist(list){
+  const box = $('#ch-dist'); box.innerHTML = '';
+  if (!list.length) return vacio(box, 'No hay artículos para graficar.');
+  const W = Math.max(280, box.clientWidth), H = 296, m = {l:34, r:8, t:24, b:36};
+  const bins = []; for (let i = 0; i < 20; i++) bins.push({lo:i*5, hi:i*5+5, n:0});
+  let under = 0;
+  list.forEach(r => { const p = r.pct*100; if (p < 0) under++; else bins[Math.min(19, Math.floor(p/5))].n++; });
+  let first = bins.findIndex(b => b.n), last = 19 - [...bins].reverse().findIndex(b => b.n);
+  if (first < 0) { first = 0; last = 19; }
+  first = Math.max(0, first - 1); last = Math.min(19, last + 1);
+  const shown = bins.slice(first, last + 1);
+  if (under) shown.unshift({lo:null, hi:0, n:under});
+  const maxN = Math.max(...shown.map(b => b.n));
+  const step = maxN > 100 ? 50 : maxN > 40 ? 20 : maxN > 16 ? 10 : 5, top = Math.ceil(maxN/step)*step || step;
+  const svg = el('svg', {width:W, height:H, viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':'Histograma de márgenes'}, box);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, slot = iw/shown.length, bw = Math.min(24, slot - 2);
+  for (let v = 0; v <= top; v += step){ const y = m.t + ih - v/top*ih; el('line', {x1:m.l, x2:W-m.r, y1:y, y2:y, class:'grid'}, svg); txt(svg, m.l-6, y+4, v, 'ax', 'end'); }
+  shown.forEach((b, i) => {
+    const cx = m.l + slot*i + slot/2, h = b.n/top*ih, y = m.t + ih - h;
+    if (b.n) el('path', {d:barPath(cx - bw/2, y, bw, h, false), class: b.lo == null ? 'bar bad' : 'bar'}, svg);
+    if (shown.length <= 12 || i % 2 === 0) txt(svg, b.lo == null ? cx : m.l + slot*i, H - m.b + 16, b.lo == null ? '<0' : b.lo, 'ax', 'middle');
+    hover(el('rect', {x:m.l + slot*i, y:m.t, width:slot, height:ih, class:'hit'}, svg), `<b>${b.lo == null ? 'Menos de 0%' : b.lo + '% a ' + b.hi + '%'}</b><br>${b.n} artículo${b.n === 1 ? '' : 's'}`);
+  });
+  txt(svg, m.l, H - 2, 'margen %', 'ax', 'start');
+  const avg = list.reduce((a, r) => a + r.pct, 0)/list.length*100;
+  const pos = shown.findIndex(b => b.lo != null && avg >= b.lo && avg < b.hi);
+  if (pos >= 0){ const b = shown[pos], x = m.l + slot*pos + (avg - b.lo)/5*slot, der = x > W - 120;
+    el('line', {x1:x, x2:x, y1:m.t - 6, y2:m.t + ih, class:'ref'}, svg);
+    txt(svg, x + (der ? -6 : 6), m.t - 8, 'Promedio ' + fp(avg/100), 'lbl', der ? 'end' : 'start'); }
+}
+function dibMaxD(list){
+  const box = $('#ch-maxd'); box.innerHTML = '';
+  const M = minM/100;
+  const items = list.map(r => ({r, d: r.price ? 1 - r.cost/(r.price*(1 - M)) : -1})).sort((a, b) => a.d - b.d);
+  const fail = items.filter(i => i.d < disc/100).length;
+  $('#md-sum').innerHTML = !list.length ? '' : disc
+    ? `<b>${fail}</b> de ${list.length} artículos quedan debajo del ${minM.toLocaleString('es-AR')}% con el ${disc.toLocaleString('es-AR')}% de descuento actual.`
+    : 'Sin descuento aplicado. Probá con el descuento promedio para ver qué artículos no lo aguantan.';
+  if (!list.length) return vacio(box, 'No hay artículos para graficar.');
+  const top = items.slice(0, 12);
+  const W = Math.max(280, box.clientWidth), rowH = 22, m = {l:118, r:56, t:20, b:8}, H = m.t + m.b + top.length*rowH;
+  const maxX = Math.max(0.5, disc/100 + 0.1, ...top.map(i => i.d));
+  const svg = el('svg', {width:W, height:H, viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':'Descuento máximo por artículo'}, box);
+  const iw = W - m.l - m.r, sx = v => m.l + Math.max(0, v)/maxX*iw;
+  for (let v = 0; v <= maxX + 1e-9; v += 0.1){ const x = sx(v); el('line', {x1:x, x2:x, y1:m.t - 4, y2:H - m.b, class:'grid'}, svg); txt(svg, x, m.t - 8, Math.round(v*100) + '%', 'ax', 'middle'); }
+  top.forEach((it, i) => {
+    const y = m.t + i*rowH, bh = 12, by = y + (rowH - bh)/2, ok = it.d >= disc/100;
+    txt(svg, m.l - 8, y + rowH/2 + 4, it.r.code.length > 15 ? it.r.code.slice(0, 14) + '…' : it.r.code, 'cd', 'end');
+    if (it.d > 0) el('path', {d:barPath(m.l, by, sx(it.d) - m.l, bh, true), class: ok ? 'bar' : 'bar bad'}, svg);
+    txt(svg, it.d > 0 ? sx(it.d) + 6 : m.l + 6, y + rowH/2 + 4, it.d > 0 ? fp(it.d) : 'no llega', 'lbl');
+    hover(el('rect', {x:0, y, width:W, height:rowH, class:'hit'}, svg), `<b>${esc(it.r.code)}</b><br>${esc(it.r.name)}<br>Descuento máximo: <b>${it.d > 0 ? fp(it.d) : 'ninguno'}</b><br>Margen sin descuento: ${fp(it.r.price ? 1 - it.r.cost/it.r.price : 0)}`);
+  });
+  if (disc){ const x = sx(disc/100); el('line', {x1:x, x2:x, y1:m.t - 4, y2:H - m.b, class:'ref'}, svg); }
+}
+function dibFam(list){
+  const box = $('#ch-fam'); box.innerHTML = '';
+  const g = {};
+  list.forEach(r => { if (r.fam) (g[r.fam] = g[r.fam] || []).push(r); });
+  let fams = Object.entries(g).map(([f, rs]) => ({f, n:rs.length, avg:rs.reduce((a, r) => a + r.pct, 0)/rs.length, min:Math.min(...rs.map(r => r.pct))}));
+  if (!fams.length) return vacio(box, 'No hay familias para graficar.');
+  fams.sort((a, b) => famMode === 'worst' ? a.avg - b.avg : b.avg - a.avg);
+  fams = fams.slice(0, 15);
+  const W = Math.max(280, box.clientWidth), rowH = 24, m = {l: W < 520 ? 110 : 160, r:60, t:20, b:6}, H = m.t + m.b + fams.length*rowH;
+  const lo = Math.min(0, ...fams.map(f => f.avg)), iw = W - m.l - m.r, sx = v => m.l + (Math.max(lo, v) - lo)/(1 - lo)*iw;
+  const svg = el('svg', {width:W, height:H, viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':'Margen promedio por familia'}, box);
+  for (let v = 0; v <= 1.0001; v += 0.2){ const x = sx(v); el('line', {x1:x, x2:x, y1:m.t - 4, y2:H - m.b, class:'grid'}, svg); txt(svg, x, m.t - 8, Math.round(v*100) + '%', 'ax', 'middle'); }
+  fams.forEach((f, i) => {
+    const y = m.t + i*rowH, bh = 14, by = y + (rowH - bh)/2, max = W < 520 ? 14 : 22;
+    txt(svg, m.l - 8, y + rowH/2 + 4, f.f.length > max ? f.f.slice(0, max - 1) + '…' : f.f, 'cd', 'end');
+    if (f.avg > 0) el('path', {d:barPath(sx(0), by, sx(f.avg) - sx(0), bh, true), class:'bar'}, svg);
+    txt(svg, sx(Math.max(f.avg, 0)) + 6, y + rowH/2 + 4, fp(f.avg), 'lbl');
+    const hit = el('rect', {x:0, y, width:W, height:rowH, class:'hit click'}, svg);
+    hover(hit, `<b>${esc(f.f)}</b><br>${f.n} artículo${f.n === 1 ? '' : 's'}<br>Margen promedio: <b>${fp(f.avg)}</b><br>Menor: ${fp(f.min)}`);
+    hit.addEventListener('click', () => { hideTip(); q = f.f; $('#q').value = f.f; render(); $('#tools').scrollIntoView({behavior:'smooth', block:'start'}); });
+  });
+}
+
+/* ───────── vista mano de obra ───────── */
+let moGroup = 'art', moSort = 'mo', moPer = 'all', MOS = null, CUR = null;
+function mesEnCurso(key){
+  const h = (D.par.ventas_hasta && D.par.ventas_hasta.texto) || '';
+  const m = h.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (!m) return false;
+  if (`${m[3]}-${m[2].padStart(2, '0')}` !== key) return false;
+  return +m[1] < new Date(+m[3], +m[2], 0).getDate();
+}
+function armarMO(){
+  const by = {}; rows.forEach(r => by[r.code] = r);
+  MOS = {hora: PS*3600, months: D.ventas.map(m => {
+    const mach = {};
+    const items = m.items.map(([ref, uni, venta]) => {
+      const r = by[ref], ops = D.ops[ref];
+      if (ops) for (const k in ops) mach[k] = (mach[k] || 0) + uni*ops[k]/3600;
+      return [ref, uni, venta, uni*(r && r.mo || 0), uni*(r && r.pin || 0), uni*(r && r.arm || 0)];
+    });
+    return {key:m.key, label:m.label, curso:mesEnCurso(m.key), items, mach};
+  })};
+}
+function armarPeriodo(per){
+  const ms = per === 'all' ? MOS.months : MOS.months.filter(m => m.key === per);
+  const by = {}; rows.forEach(r => by[r.code] = r);
+  const agg = {}, mach = {};
+  ms.forEach(m => { m.items.forEach(([ref, uni, venta, mo, pin, arm]) => { const e = agg[ref] = agg[ref] || [0,0,0,0,0]; e[0]+=uni; e[1]+=venta; e[2]+=mo; e[3]+=pin; e[4]+=arm; });
+    for (const k in m.mach) mach[k] = (mach[k] || 0) + m.mach[k]; });
+  const items = Object.entries(agg).map(([ref, e]) => { const r = by[ref];
+    return {ref, name: r ? r.name : ref, fam: r ? r.fam : '', full: r ? r.full : false, uni:e[0], venta:e[1], v:[e[2], e[3], e[4]],
+            u: r ? [r.mo, r.pin, r.arm] : [null, null, null], mp: (r ? r.mp : 0)*e[0]}; });
+  const f = MOS.months[0], l = MOS.months[MOS.months.length-1];
+  const label = per === 'all' ? `${f.label.toLowerCase()} a ${l.label.toLowerCase()}${l.curso ? ' (en curso)' : ''}` : ms[0].label.toLowerCase() + (ms[0].curso ? ' (en curso)' : '');
+  return {items, mach:Object.entries(mach).sort((a, b) => b[1] - a[1]), venta:items.reduce((a, x) => a + x.venta, 0), uni:items.reduce((a, x) => a + x.uni, 0), label};
+}
+function llenarPeriodos(){
+  const sel = $('#moper'), f = MOS.months[0], l = MOS.months[MOS.months.length-1];
+  if (moPer !== 'all' && !MOS.months.some(m => m.key === moPer)) moPer = 'all';
+  sel.innerHTML = `<option value="all">Acumulado ${f.label.toLowerCase()} – ${l.label.toLowerCase()}</option>` + MOS.months.map(m => `<option value="${m.key}">${m.label}${m.curso ? ' (en curso)' : ''}</option>`).join('');
+  sel.value = moPer;
+}
+function renderMO(){
+  if (!MOS || !MOS.months.length){ $('#mo-kpi').innerHTML = ''; vacio($('#ch-evo'), 'Todavía no hay ventas cargadas.'); return; }
+  llenarPeriodos(); CUR = armarPeriodo(moPer);
+  const H = MOS.hora, it = CUR.items;
+  const tot = it.reduce((a, x) => a + x.v[0] + x.v[1] + x.v[2], 0);
+  const ht = it.reduce((a, x) => a + x.v[0], 0)/H, hp = it.reduce((a, x) => a + x.v[1], 0)/H, ha = it.reduce((a, x) => a + x.v[2], 0)/H;
+  const orden = [...it].sort((a, b) => (b.v[0]+b.v[1]+b.v[2]) - (a.v[0]+a.v[1]+a.v[2]));
+  let acc = 0, n50 = 0; for (const x of orden){ acc += x.v[0]+x.v[1]+x.v[2]; n50++; if (acc >= tot/2) break; }
+  $('#mo-kpi').innerHTML =
+    `<div class="kpi"><div class="l">Unidades entregadas</div><div class="v">${fn(CUR.uni)}</div></div>`+
+    `<div class="kpi"><div class="l">Mano de obra total</div><div class="v">${fmM(tot)} <small>${CUR.venta ? fp(tot/CUR.venta) : '–'} de lo facturado</small></div></div>`+
+    `<div class="kpi"><div class="l">Horas-hombre</div><div class="v">${fn(ht+hp+ha)} <small>h</small></div></div>`+
+    `<div class="kpi"><div class="l">Concentración</div><div class="v">${n50} <small>artículos = 50% de la MO</small></div></div>`;
+  dibEvo(); dibMO(); dibSec(ht, hp, ha); dibMach();
+  const inc = it.filter(x => !x.full).length;
+  $('#mo-inc').hidden = !inc;
+  $('#mo-inc').textContent = inc + ' artículos vendidos tienen alguna mano de obra sin cargar; su consumo real es mayor al que se ve.';
+}
+function apilado(svg, segs, x0, y0, largo, grosor, horiz, escala){   // tramos de un total, 2px de separación
+  let pos = horiz ? x0 : y0;
+  const vis = segs.map((v, j) => ({v, j})).filter(s => s.v > 0);
+  vis.forEach((s, si) => {
+    const L = s.v*escala, last = si === vis.length - 1, gap = last ? 0 : 2;
+    if (horiz){ if (L - gap > 0.5) el('path', {d: last ? barPath(pos, y0, L, grosor, true) : `M${pos},${y0}h${L-gap}v${grosor}h${-(L-gap)}Z`, class:'s' + (s.j+1)}, svg); pos += L; }
+    else { pos -= L; if (L - gap > 0.5) el('path', {d: last ? barPath(x0, pos, grosor, L, false) : `M${x0},${pos+gap}h${grosor}v${L-gap}h${-grosor}Z`, class:'s' + (s.j+1)}, svg); }
+  });
+  return pos;
+}
+function dibEvo(){
+  const box = $('#ch-evo'); box.innerHTML = ''; const t2 = $('#tip2'), H = MOS.hora;
+  const data = MOS.months.map(m => { const s = [0,0,0]; let v = 0, u = 0; m.items.forEach(x => { s[0]+=x[3]; s[1]+=x[4]; s[2]+=x[5]; v+=x[2]; u+=x[1]; });
+    return {k:m.key, lab:m.label.slice(0, 3), full:m.label, curso:m.curso, h:s.map(x => x/H), mo:s[0]+s[1]+s[2], venta:v, uni:u}; });
+  data.forEach(d => d.t = d.h[0]+d.h[1]+d.h[2]);
+  const W = Math.max(280, box.clientWidth), Hh = 250, m = {l:48, r:8, t:24, b:28};
+  const maxV = Math.max(1, ...data.map(d => d.t)), step = maxV > 6000 ? 2000 : maxV > 3000 ? 1000 : 500, top = Math.ceil(maxV/step)*step;
+  const iw = W - m.l - m.r, ih = Hh - m.t - m.b, slot = iw/data.length, bw = Math.min(36, slot - 8);
+  const svg = el('svg', {width:W, height:Hh, viewBox:`0 0 ${W} ${Hh}`, role:'img', 'aria-label':'Horas-hombre por mes'}, box);
+  for (let v = 0; v <= top; v += step){ const y = m.t + ih - v/top*ih; el('line', {x1:m.l, x2:W-m.r, y1:y, y2:y, class:'grid'}, svg); txt(svg, m.l-6, y+4, fn(v), 'ax', 'end'); }
+  data.forEach((d, i) => {
+    const cx = m.l + slot*i + slot/2, x0 = cx - bw/2;
+    const yTop = apilado(svg, d.h, x0, m.t + ih, 0, bw, false, ih/top);
+    if (moPer === d.k) el('rect', {x:x0-4, y:m.t-4, width:bw+8, height:ih+8, rx:4, class:'selbox'}, svg);
+    if (slot > 44 || moPer === d.k) txt(svg, cx, yTop - 6, fn(d.t), 'lbl', 'middle');
+    txt(svg, cx, Hh - m.b + 16, d.lab + (d.curso ? '*' : ''), 'ax', 'middle');
+    const hit = el('rect', {x:m.l + slot*i, y:m.t, width:slot, height:ih, class:'hit click'}, svg);
+    hover(hit, `<b>${d.full}${d.curso ? ' (en curso)' : ''}</b><br>${fn(d.uni)} unidades entregadas<br><span class="kk s1"></span>Taller ${fn(d.h[0])} h<br><span class="kk s2"></span>Pintura ${fn(d.h[1])} h<br><span class="kk s3"></span>Armado ${fn(d.h[2])} h<br>MO ${fmM(d.mo)} de ${fmM(d.venta)} facturado · <b>${d.venta ? fp(d.mo/d.venta) : '–'}</b>`, t2);
+    hit.addEventListener('click', () => { hideTip(); moPer = moPer === d.k ? 'all' : d.k; renderMO(); });
+  });
+}
+function dibMO(){
+  const box = $('#ch-mo'); box.innerHTML = ''; const t2 = $('#tip2');
+  let data;
+  if (moGroup === 'art') data = CUR.items.map(x => ({k:x.ref, sub:x.name, uni:x.uni, venta:x.venta, mp:x.mp, v:x.v, u:x.u}));
+  else { const g = {}; CUR.items.forEach(x => { const f = x.fam || 'Sin familia'; const e = g[f] = g[f] || {k:f, sub:'', uni:0, venta:0, mp:0, v:[0,0,0], n:0};
+    e.uni += x.uni; e.venta += x.venta; e.mp += x.mp; e.n++; for (let i = 0; i < 3; i++) e.v[i] += x.v[i]; }); data = Object.values(g); }
+  data.forEach(d => { d.t = d.v[0]+d.v[1]+d.v[2]; d.rent = d.venta - d.mp - d.t; });
+  data.sort((a, b) => moSort === 'venta' ? b.venta - a.venta : b.t - a.t); data = data.slice(0, 15);
+  $('#mo-title').textContent = moSort === 'venta' ? 'Lo más facturado y la mano de obra que usó' : 'Lo que más mano de obra consumió';
+  if (!data.length) return vacio(box, 'No hay ventas en el período.');
+  const angosto = box.clientWidth < 620;
+  const W = Math.max(280, box.clientWidth), rowH = 26, chico = W < 520, m = {l: chico ? 96 : 150, r: chico ? 120 : angosto ? 190 : 400, t:20, b:6};
+  const Hh = m.t + m.b + data.length*rowH, maxV = Math.max(1, ...data.map(d => d.t));
+  const step = maxV > 4e6 ? 1e6 : maxV > 2e6 ? 5e5 : maxV > 8e5 ? 2e5 : maxV > 2e5 ? 1e5 : 2e4;
+  const top = Math.ceil(maxV/step)*step, iw = Math.max(40, W - m.l - m.r);
+  const svg = el('svg', {width:W, height:Hh, viewBox:`0 0 ${W} ${Hh}`, role:'img', 'aria-label':'Mano de obra consumida'}, box);
+  for (let v = 0; v <= top + 1; v += step){ const x = m.l + v/top*iw; el('line', {x1:x, x2:x, y1:m.t - 4, y2:Hh - m.b, class:'grid'}, svg); if (!angosto || v === 0 || v === top) txt(svg, x, m.t - 8, v >= 1e6 ? (v/1e6).toLocaleString('es-AR') + ' M' : (v/1e3) + ' k', 'ax', 'middle'); }
+  data.forEach((d, i) => {
+    const y = m.t + i*rowH, bh = 14, by = y + (rowH - bh)/2, max = W < 520 ? 13 : 20;
+    txt(svg, m.l - 8, y + rowH/2 + 4, d.k.length > max ? d.k.slice(0, max - 1) + '…' : d.k, 'cd', 'end');
+    const fin = apilado(svg, d.v, m.l, by, 0, bh, true, iw/top);
+    const pct = d.venta ? d.t/d.venta : 0, rp = d.venta ? d.rent/d.venta : 0;
+    const lt = txt(svg, fin + 6, y + rowH/2 + 4, '', 'lbl');
+    el('tspan', {}, lt).textContent = fmM(d.t);
+    el('tspan', {class:'lbl-m'}, lt).textContent = angosto ? ' · ' + fp(pct) : ' de ' + fmM(d.venta) + ' facturado · ' + fp(pct);
+    el('tspan', {class: rp < 0.4 ? 'lbl-bad' : 'lbl-ok'}, lt).textContent = chico ? '' : ' · rentab. ' + fp(rp);
+    const hit = el('rect', {x:0, y, width:W, height:rowH, class:'hit' + (moGroup === 'fam' ? ' click' : '')}, svg);
+    const pu = j => d.u && d.u[j] != null ? ' (' + fm.format(d.u[j]) + '/u)' : '';
+    hover(hit, `<b>${esc(d.k)}</b>${d.sub ? '<br>' + esc(d.sub) : d.n ? '<br>' + d.n + ' artículos' : ''}<br>${fn(d.uni)} unidades · ${fn(d.t/MOS.hora)} h<br><span class="kk s1"></span>Taller ${fm.format(d.v[0])}${pu(0)}<br><span class="kk s2"></span>Pintura ${fm.format(d.v[1])}${pu(1)}<br><span class="kk s3"></span>Armado ${fm.format(d.v[2])}${pu(2)}<br>Total MO <b>${fm.format(d.t)}</b><br>Facturado ${fm.format(d.venta)} · MO = <b>${fp(pct)}</b><br>Materia prima ${fm.format(d.mp)}<br>Rentabilidad <b>${fm.format(d.rent)}</b> · <b>${fp(rp)}</b>`, t2);
+    if (moGroup === 'fam') hit.addEventListener('click', () => { hideTip(); irAVista('margen'); q = d.k; $('#q').value = d.k; render(); $('#tools').scrollIntoView({behavior:'smooth', block:'start'}); });
+  });
+}
+function barrasH(boxId, data, fmt){
+  const box = $('#' + boxId); box.innerHTML = ''; const t2 = $('#tip2');
+  if (!data.length) return vacio(box, 'Sin datos en el período.');
+  const W = Math.max(260, box.clientWidth), rowH = 24, m = {l:64, r:70, t:6, b:6};
+  const Hh = m.t + m.b + data.length*rowH, maxV = Math.max(1e-9, ...data.map(d => d.v)), iw = W - m.l - m.r;
+  const svg = el('svg', {width:W, height:Hh, viewBox:`0 0 ${W} ${Hh}`, role:'img'}, box);
+  data.forEach((d, i) => { const y = m.t + i*rowH, bh = 14, by = y + (rowH - bh)/2, w = d.v/maxV*iw;
+    txt(svg, m.l - 8, y + rowH/2 + 4, d.k, 'cd', 'end');
+    if (w > 0) el('path', {d:barPath(m.l, by, w, bh, true), class:d.cls}, svg);
+    txt(svg, m.l + w + 6, y + rowH/2 + 4, fmt(d.v), 'lbl');
+    hover(el('rect', {x:0, y, width:W, height:rowH, class:'hit'}, svg), d.tip, t2); });
+}
+function dibSec(ht, hp, ha){
+  const T = ht + hp + ha || 1;
+  barrasH('ch-sec', [
+    {k:'Taller', v:ht, cls:'s1', tip:`<b>Taller</b><br>${fn(ht)} h · ${fp(ht/T)} del total<br>${fm.format(ht*MOS.hora)}`},
+    {k:'Pintura', v:hp, cls:'s2', tip:`<b>Pintura</b><br>${fn(hp)} h · ${fp(hp/T)} del total<br>${fm.format(hp*MOS.hora)}<br>Incluye el ×6 de la línea`},
+    {k:'Armado', v:ha, cls:'s3', tip:`<b>Armado</b><br>${fn(ha)} h · ${fp(ha/T)} del total<br>${fm.format(ha*MOS.hora)}`}
+  ].sort((a, b) => b.v - a.v), v => fn(v) + ' h');
+}
+function dibMach(){
+  const tot = CUR.mach.reduce((a, x) => a + x[1], 0) || 1;
+  barrasH('ch-mach', CUR.mach.slice(0, 12).map(([k, v]) => ({k, v, cls:'s1', tip:`<b>Operación ${esc(k)}</b><br>${fn(v)} h · ${fp(v/tot)} del taller<br>${fm.format(v*MOS.hora)}`})), v => fn(v) + ' h');
+}
+
+/* ───────── controles ───────── */
+function pintarPrecioSeg(){
+  $('#ps-h').textContent = 'Equivale a ' + fm.format(PS*3600) + ' la hora.' + (D.par.precio_seg && D.par.precio_seg.usuario && D.par.precio_seg.usuario !== 'sistema' ? ' Último cambio: ' + D.par.precio_seg.usuario + '.' : '');
+  $('#ps-note').textContent = fps(PS) + ' el segundo (' + fm.format(PS*3600) + ' la hora)';
+  $('#ps-ctl').innerHTML = ES_ADMIN
+    ? `<div class="num-in"><span>$</span><input type="text" id="ps-in" inputmode="decimal" aria-label="Precio del segundo en pesos" value="${String(PS).replace('.', ',')}"></div><button type="button" class="btn btn-prim" id="ps-btn">Guardar</button><span class="help" id="ps-msg" role="status"></span>`
+    : `<span class="ro">${fps(PS)}</span><span class="help">Lo cambia un administrador.</span>`;
+  if (!ES_ADMIN) return;
+  const inp = $('#ps-in'), btn = $('#ps-btn'), msg = $('#ps-msg');
+  inp.addEventListener('input', () => { const v = leerNum(inp.value); $('#ps-h').textContent = v > 0 && v < 1000 ? 'Equivale a ' + fm.format(v*3600) + ' la hora.' : 'Ingresá un valor mayor a cero.'; msg.textContent = ''; });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
+  btn.addEventListener('click', async () => {
+    const v = leerNum(inp.value);
+    if (!(v > 0 && v < 1000)) { msg.textContent = 'Ingresá un precio válido.'; return; }
+    if (v === PS) { msg.textContent = 'Es el mismo valor.'; return; }
+    btn.disabled = true; msg.textContent = 'Guardando…';
+    try {
+      if (!DEMO) { const {data, error} = await sb.from('rent_parametros').upsert({clave:'precio_seg', valor:v}).select('clave,valor,texto,usuario,updated_at');
+        if (error) throw error; if (!data || !data.length) throw new Error('sin permiso'); D.par.precio_seg = data[0]; }
+      PS = v; recalcular(); $('#ps-msg') && ($('#ps-msg').textContent = 'Listo: toda la mano de obra se recalculó.');
+    } catch (e) { msg.textContent = 'No se pudo guardar (' + (e.message || e) + '). Solo un administrador puede cambiarlo.'; btn.disabled = false; }
+  });
+}
+function setDisc(v, desdeInput){
+  v = isNaN(v) ? 0 : Math.min(90, Math.max(0, v));
+  disc = v; if (!desdeInput) $('#disc').value = String(v).replace('.', ',');
+  $$('#disc-seg button').forEach(x => x.setAttribute('aria-pressed', parseFloat(x.dataset.d) === v));
+  $('#disc-help').textContent = v ? 'Margen calculado sobre precio de lista menos ' + v.toLocaleString('es-AR') + '%. Se guarda solo en este navegador.' : 'Sin descuento: el margen se calcula sobre el precio de lista.';
+  guardarLocal('rent_desc', v);
+  aplicarDesc(); render();
+}
+function irAVista(v){
+  $$('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.v === v));
+  $('#v-margen').hidden = v !== 'margen'; $('#v-mo').hidden = v !== 'mo';
+  $('#v-mo').style.display = v === 'mo' ? 'flex' : '';
+  guardarLocal('rent_vista', v);
+  if (v === 'mo') renderMO(); else renderGraficos();
+}
+function conectar(){
+  $('#disc').addEventListener('input', () => setDisc(leerNum($('#disc').value), true));
+  $$('#disc-seg button').forEach(b => b.addEventListener('click', () => setDisc(parseFloat(b.dataset.d))));
+  $('#minm').value = String(minM).replace('.', ',');
+  $('#minm').addEventListener('input', e => { const v = leerNum(e.target.value); minM = isNaN(v) ? 0 : Math.min(90, Math.max(0, v)); guardarLocal('rent_minm', minM); renderGraficos(); });
+  $$('#famseg button').forEach(b => b.addEventListener('click', () => { famMode = b.dataset.f; $$('#famseg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderGraficos(); }));
+  let tq; $('#q').addEventListener('input', e => { clearTimeout(tq); tq = setTimeout(() => { q = e.target.value; render(); }, 150); });
+  $('#onlyFull').addEventListener('change', e => { onlyFull = e.target.checked; render(); });
+  $('#onlyPend').addEventListener('change', e => { onlyPend = e.target.checked; render(); });
+  $$('#bands button').forEach(b => b.addEventListener('click', () => { band = b.dataset.band; $$('#bands button').forEach(x => x.setAttribute('aria-pressed', x === b)); render(); }));
+  $$('th button').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.k;
+    if (k === sortK) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    else { sortK = k; sortDir = (k === 'code' || k === 'name' || k === 'pct') ? 'asc' : 'desc'; }
+    $$('th button').forEach(x => x.removeAttribute('data-dir')); b.setAttribute('data-dir', sortDir); render();
+  }));
+  $$('.tabs button').forEach(b => b.addEventListener('click', () => irAVista(b.dataset.v)));
+  $('#moper').addEventListener('change', e => { moPer = e.target.value; renderMO(); });
+  $$('#moseg button').forEach(b => b.addEventListener('click', () => { moGroup = b.dataset.g; $$('#moseg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderMO(); }));
+  $$('#mosort button').forEach(b => b.addEventListener('click', () => { moSort = b.dataset.s; $$('#mosort button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderMO(); }));
+  $('#btn-excel').addEventListener('click', excel);
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!rows.length) return; if ($('#v-mo').hidden) renderGraficos(); else renderMO(); }, 150); });
+}
+function recalcular(){
+  armarFilas(); armarMO(); pintarPrecioSeg();
+  const np = rows.filter(r => r.pend).length;
+  $('#pend-n').textContent = np ? np + ' artículos tienen algún valor pendiente (●): ese tiempo todavía no está en producción y se usa el del archivo anterior.' : '';
+  render(); if (!$('#v-mo').hidden) renderMO();
+}
+
+/* ───────── Excel de la tabla actual ───────── */
+function excel(){
+  if (!window.XLSX) return alert('No se pudo cargar la librería de Excel.');
+  const r2 = v => v == null ? null : Math.round(v*100)/100;
+  const filas = ULTIMA.map(r => ({'Código':r.code, 'Artículo':r.name, 'Familia':r.fam, 'Precio lista':r2(r.price), 'Precio c/ desc.':r2(r.net), 'Materia prima':r2(r.mp),
+    'Seg. taller':r.sec[0], 'Seg. pintura':r.sec[1], 'Seg. armado':r.sec[2], 'MO taller':r2(r.mo), 'MO pintura':r2(r.pin), 'MO armado':r2(r.arm), 'MO total':r2(r.motot),
+    'Costo total':r2(r.cost), 'Margen $':r2(r.mg), 'Margen %':Math.round(r.pct*10000)/10000, 'Origen taller':r.fl[0], 'Origen pintura':r.fl[1], 'Origen armado':r.fl[2], 'Nota':r.nota}));
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [{wch:15},{wch:48},{wch:18}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Margen');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Precio del segundo', PS], ['Descuento %', disc], ['Precios y costos al', (D.par.precios_al || {}).texto || ''], ['Estándares al', (D.par.estandares_al || {}).texto || ''], ['Filtros', [q && 'búsqueda "' + q + '"', band !== 'all' && 'margen ' + band, onlyFull && 'solo costo completo', onlyPend && 'solo pendientes'].filter(Boolean).join(', ') || 'ninguno']]), 'Parámetros');
+  XLSX.writeFile(wb, 'Rentabilidad_margen_por_articulo_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+}
+
+/* ───────── arranque ───────── */
+(async function(){
+  try {
+    const acceso = DEMO ? {es_admin: true} : await (window.PORTAL_ACCESO || Promise.resolve({}));
+    ES_ADMIN = !!(acceso && acceso.es_admin);
+    await cargar();
+    if (!D.arts.length) throw new Error('vacio');
+    const t = k => (D.par[k] && D.par[k].texto) || '–';
+    $('#sub').textContent = `Precios y costos de Odoo al ${t('precios_al')} · Estándares de producción al ${t('estandares_al')} · Ventas hasta ${t('ventas_hasta')}`;
+    conectar(); setDisc(disc);
+    $('#cargando').hidden = true; $('#app').hidden = false; $('#btn-excel').disabled = false;
+    recalcular();
+    irAVista(leerLocal('rent_vista') === 'mo' ? 'mo' : 'margen');
+  } catch (e) {
+    const msg = String(e && (e.message || e.error || e) || '');
+    $('#cargando').hidden = true;
+    $('#avisos').innerHTML = `<div class="aviso err">${msg === 'vacio'
+      ? 'Todavía no hay datos cargados. Hay que correr <b>8_rentabilidad_datos.sql</b> en Supabase.'
+      : /relation|does not exist|schema cache/i.test(msg) ? 'Faltan las tablas: hay que correr <b>7_rentabilidad.sql</b> en Supabase.'
+      : 'No se pudieron cargar los datos: ' + esc(msg)}</div>`;
+    $('#sub').textContent = 'Sin datos';
+  }
+})();
+</script>
+</body>
+</html>
